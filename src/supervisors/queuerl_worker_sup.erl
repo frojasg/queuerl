@@ -1,5 +1,4 @@
--module(queuerl_sup).
-
+-module(queuerl_worker_sup).
 -behaviour(supervisor).
 
 %% API
@@ -42,15 +41,20 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
-  SupFlags = #{strategy => one_for_all,
+  SupFlags = #{strategy => simple_one_for_one,
 	       intensity => 1,
 	       period => 5},
 
-  WorkerSup = #{id => worker_sup,
-		start => {queuerl_worker_sup, start_link, []},
-		restart => permanent,
-		shutdown => 5000,
-		type => worker,
-		modules => [queuerl_worker_sup]},
+  Worker = #{id => worker,
+	     start => {queuerl_worker_process, start_link, []},
+	     restart => temporary,
+	     shutdown => 5000,
+	     type => worker,
+	     modules => [queuerl_worker_process]},
 
-  {ok, {SupFlags, [WorkerSup]}}.
+  {ok, {SupFlags, [Worker]}}.
+
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================
+
