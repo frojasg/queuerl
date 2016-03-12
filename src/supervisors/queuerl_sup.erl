@@ -46,11 +46,16 @@ init([]) ->
 	       intensity => 1,
 	       period => 5},
 
+  Controller = #{id => controller,
+		 start => {queuerl_controller, start_link, []},
+		 restart => permanent,
+		 shutdown => 5000,
+		 type => worker,
+		 modules => [queuerl_controller]},
   WorkerSup = #{id => worker_sup,
 		start => {queuerl_worker_sup, start_link, []},
 		restart => permanent,
 		shutdown => 5000,
 		type => worker,
 		modules => [queuerl_worker_sup]},
-
-  {ok, {SupFlags, [WorkerSup]}}.
+  {ok, {SupFlags, [Controller, WorkerSup]}}.
