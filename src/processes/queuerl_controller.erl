@@ -136,25 +136,23 @@ monitor_task(Task) ->
   WorkerPid = queuerl_task:get_worker_pid(Task),
   erlang:monitor(process, WorkerPid).
 
-handle_worker_down(MonitorRef, normal, #state{refs = Refs, tasks = Tasks} = State) ->
-  Task = maps:get(MonitorRef, Refs),
-  NewTask = queuerl_task:change_status(succeeded, Task),
-  queuerl:notify_client(NewTask, {succeeded}),
-  TaskUuid = queuerl_task:get_uuid(NewTask),
-  NewTasks = maps:put(TaskUuid, NewTask, Tasks),
-  {noreply, State#state{tasks = NewTasks}};
 handle_worker_down(MonitorRef, Info, #state{refs = Refs, tasks = Tasks} = State) ->
   Task = maps:get(MonitorRef, Refs),
-  NewTask = handle_retry_task(Task, Info),
-  TaskUuid = queuerl_task:get_uuid(NewTask),
+  TaskUuid = queuerl_task:get_uuid(Task),
+  NewTask = handle_worker_down(Info, Task),
   NewTasks = maps:put(TaskUuid, NewTask, Tasks),
   {noreply, State#state{tasks = NewTasks}}.
 
-handle_retry_task(Task, Info) ->
+handle_worker_down(normal, Task) ->
+  NewTask = queuerl_task:change_status(succeeded, Task),
+  queuerl:notify_client(NewTask, {succeeded}),
+  NewTask;
+handle_worker_down(Info, Task) ->
   Result = queuerl:retry(Task, Info),
   handle_retry_task(Result).
 
-handle_retry_task({error, {ErrorMsg, ErroredTask}}) ->
+handle_retry_task({error, {Task, ErrorMsg}}) ->
+  ErroredTask = queuerl_task:change_status(errored, Task),
   queuerl:notify_client(ErroredTask, {errored, ErrorMsg}),
   ErroredTask;
 handle_retry_task({ok, Task}) ->
