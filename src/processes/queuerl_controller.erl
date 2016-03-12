@@ -3,7 +3,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, enqueue/1]).
+-export([start_link/0, enqueue/1, get_task/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -11,7 +11,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {}).
+-record(state, {refs :: #{}, tasks :: #{}}).
 
 %%%===================================================================
 %%% API
@@ -30,6 +30,9 @@ start_link() ->
 enqueue(Task) ->
   gen_server:cast(?SERVER, {enqueue, Task}).
 
+get_task(TaskUuid) ->
+  gen_server:call(?SERVER, {task_status, TaskUuid}).
+
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -46,7 +49,8 @@ enqueue(Task) ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
-  {ok, #state{}}.
+  {ok, #state{refs = maps:new(),
+	      tasks = maps:new()}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -62,8 +66,8 @@ init([]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call(_Request, _From, State) ->
-  Reply = ok,
+handle_call({task_status, Uuid}, _From, #state{tasks = Tasks} = State) ->
+  Reply = maps:get(Uuid, Tasks, undefined),
   {reply, Reply, State}.
 
 %%--------------------------------------------------------------------
@@ -77,9 +81,13 @@ handle_call(_Request, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec handle_cast({enqueue, queuerl_task:task()}, #state{}) -> any().
-handle_cast({enqueue, Task}, State) ->
-  queuerl_run_task_action:call(Task),
-  {noreply, State}.
+handle_cast({enqueue, Task}, #state{refs = Refs, tasks = Tasks} = State) ->
+  {ok, NewTask} = queuerl_run_task_action:call(Task),
+  TaskUuid = queuerl_task:get_uuid(NewTask),
+  MonitorRef = monitor_task(NewTask),
+  NewRefs = maps:put(MonitorRef, NewTask, Refs),
+  NewTasks = maps:put(TaskUuid, NewTask, Tasks),
+  {noreply, State#state{refs = NewRefs, tasks = NewTasks}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -91,8 +99,9 @@ handle_cast({enqueue, Task}, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(_Info, State) ->
-  {noreply, State}.
+handle_info({'DOWN', Ref, process, _, Info}, State) ->
+  handle_worker_down(Ref, Info, State).
+
 
 %%--------------------------------------------------------------------
 %% @private
@@ -122,3 +131,27 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+-spec monitor_task(queuerl_task:task()) -> reference().
+monitor_task(Task) ->
+  WorkerPid = queuerl_task:get_worker_pid(Task),
+  erlang:monitor(process, WorkerPid).
+
+handle_worker_down(_Ref, normal, State) ->
+  {noreply, State};
+handle_worker_down(MonitorRef, Info, #state{refs = Refs, tasks = Tasks} = State) ->
+  Task = maps:get(MonitorRef, Refs),
+  NewTask = handle_retry_task(Task, Info),
+  TaskUuid = queuerl_task:get_uuid(NewTask),
+  NewTasks = maps:put(TaskUuid, NewTask, Tasks),
+  {noreply, State#state{tasks = NewTasks}}.
+
+handle_retry_task(Task, Info) ->
+  Result = queuerl_retry_task_action:call(Task, Info),
+  handle_retry_task({Task, Result}).
+
+handle_retry_task({_Task, {error, {ErrorMsg, ErroredTask}}}) ->
+  queuerl_notify_task_errored_action:call(ErroredTask, ErrorMsg),
+  ErroredTask;
+handle_retry_task({Task, _}) ->
+  Task.
+
