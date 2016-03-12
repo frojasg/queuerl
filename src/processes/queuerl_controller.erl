@@ -82,7 +82,7 @@ handle_call({task_status, Uuid}, _From, #state{tasks = Tasks} = State) ->
 %%--------------------------------------------------------------------
 -spec handle_cast({enqueue, queuerl_task:task()}, #state{}) -> any().
 handle_cast({enqueue, Task}, #state{refs = Refs, tasks = Tasks} = State) ->
-  {ok, NewTask} = queuerl_run_task_action:call(Task),
+  {ok, NewTask} = queuerl:run(Task),
   TaskUuid = queuerl_task:get_uuid(NewTask),
   MonitorRef = monitor_task(NewTask),
   NewRefs = maps:put(MonitorRef, NewTask, Refs),
@@ -136,8 +136,13 @@ monitor_task(Task) ->
   WorkerPid = queuerl_task:get_worker_pid(Task),
   erlang:monitor(process, WorkerPid).
 
-handle_worker_down(_Ref, normal, State) ->
-  {noreply, State};
+handle_worker_down(MonitorRef, normal, #state{refs = Refs, tasks = Tasks} = State) ->
+  Task = maps:get(MonitorRef, Refs),
+  NewTask = queuerl_task:change_status(succeeded, Task),
+  queuerl:notify_client(NewTask, {succeeded}),
+  TaskUuid = queuerl_task:get_uuid(NewTask),
+  NewTasks = maps:put(TaskUuid, NewTask, Tasks),
+  {noreply, State#state{tasks = NewTasks}};
 handle_worker_down(MonitorRef, Info, #state{refs = Refs, tasks = Tasks} = State) ->
   Task = maps:get(MonitorRef, Refs),
   NewTask = handle_retry_task(Task, Info),
@@ -146,12 +151,12 @@ handle_worker_down(MonitorRef, Info, #state{refs = Refs, tasks = Tasks} = State)
   {noreply, State#state{tasks = NewTasks}}.
 
 handle_retry_task(Task, Info) ->
-  Result = queuerl_retry_task_action:call(Task, Info),
-  handle_retry_task({Task, Result}).
+  Result = queuerl:retry(Task, Info),
+  handle_retry_task(Result).
 
-handle_retry_task({_Task, {error, {ErrorMsg, ErroredTask}}}) ->
-  queuerl_notify_task_errored_action:call(ErroredTask, ErrorMsg),
+handle_retry_task({error, {ErrorMsg, ErroredTask}}) ->
+  queuerl:notify_client(ErroredTask, {errored, ErrorMsg}),
   ErroredTask;
-handle_retry_task({Task, _}) ->
+handle_retry_task({ok, Task}) ->
   Task.
 
