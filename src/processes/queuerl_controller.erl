@@ -3,7 +3,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0]).
+-export([start_link/0, enqueue/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -26,6 +26,9 @@
 %%--------------------------------------------------------------------
 start_link() ->
   gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+
+enqueue(Task) ->
+  gen_server:cast(?SERVER, {enqueue, Task}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -73,7 +76,9 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast(_Msg, State) ->
+-spec handle_cast({enqueue, queuerl_task:task()}, #state{}) -> any().
+handle_cast({enqueue, Task}, State) ->
+  queuerl_run_task_action:call(Task),
   {noreply, State}.
 
 %%--------------------------------------------------------------------

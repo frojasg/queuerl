@@ -25,7 +25,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link(Task) ->
-  gen_server:start_link({local, ?SERVER}, ?MODULE, [Task], []).
+  gen_server:start_link(?MODULE, [Task], []).
 
 %%%===================================================================
 %%% gen_server callbacks
