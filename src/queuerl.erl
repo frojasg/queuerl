@@ -8,19 +8,19 @@
 	 get_task/1]).
 
 new_task(Function) ->
-  queuerl_task:new(Function, self()).
+  queuerl_tasks:new(Function, self()).
 
 enqueue(Task) ->
-  queuerl_enqueue_task_action:call(Task).
+  queuerl_task_actions:enqueue(Task).
 
 run(Task) ->
-  queuerl_run_task_action:call(Task).
+  queuerl_task_actions:run(Task).
 
 retry(Task, RetryInfo) ->
-  queuerl_retry_task_action:call(Task, RetryInfo).
+  queuerl_task_actions:retry(Task, RetryInfo).
 
 notify_client(Task, Info) ->
-  queuerl_notify_client_action:call(Task, Info).
+  queuerl_task_actions:notify_client(Task, Info).
 
 get_task(TaskUuid) ->
   queuerl_controller:get_task(TaskUuid).

@@ -80,10 +80,10 @@ handle_call({task_status, Uuid}, _From, #state{tasks = Tasks} = State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
--spec handle_cast({enqueue, queuerl_task:task()}, #state{}) -> any().
+-spec handle_cast({enqueue, queuerl_tasks:task()}, #state{}) -> any().
 handle_cast({enqueue, Task}, #state{refs = Refs, tasks = Tasks} = State) ->
   {ok, NewTask} = queuerl:run(Task),
-  TaskUuid = queuerl_task:get_uuid(NewTask),
+  TaskUuid = queuerl_tasks:get_uuid(NewTask),
   MonitorRef = monitor_task(NewTask),
   NewRefs = maps:put(MonitorRef, NewTask, Refs),
   NewTasks = maps:put(TaskUuid, NewTask, Tasks),
@@ -131,20 +131,20 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
--spec monitor_task(queuerl_task:task()) -> reference().
+-spec monitor_task(queuerl_tasks:task()) -> reference().
 monitor_task(Task) ->
-  WorkerPid = queuerl_task:get_worker_pid(Task),
+  WorkerPid = queuerl_tasks:get_worker_pid(Task),
   erlang:monitor(process, WorkerPid).
 
 handle_worker_down(MonitorRef, Info, #state{refs = Refs, tasks = Tasks} = State) ->
   Task = maps:get(MonitorRef, Refs),
-  TaskUuid = queuerl_task:get_uuid(Task),
+  TaskUuid = queuerl_tasks:get_uuid(Task),
   NewTask = handle_worker_down(Info, Task),
   NewTasks = maps:put(TaskUuid, NewTask, Tasks),
   {noreply, State#state{tasks = NewTasks}}.
 
 handle_worker_down(normal, Task) ->
-  NewTask = queuerl_task:change_status(succeeded, Task),
+  NewTask = queuerl_tasks:change_status(succeeded, Task),
   queuerl:notify_client(NewTask, {succeeded}),
   NewTask;
 handle_worker_down(Info, Task) ->
@@ -152,7 +152,7 @@ handle_worker_down(Info, Task) ->
   handle_retry_task(Result).
 
 handle_retry_task({error, {Task, ErrorMsg}}) ->
-  ErroredTask = queuerl_task:change_status(errored, Task),
+  ErroredTask = queuerl_tasks:change_status(errored, Task),
   queuerl:notify_client(ErroredTask, {errored, ErrorMsg}),
   ErroredTask;
 handle_retry_task({ok, Task}) ->

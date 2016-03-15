@@ -11,7 +11,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {task :: queuerl_task:task()}).
+-record(state, {task :: queuerl_tasks:task()}).
 
 %%%===================================================================
 %%% API
@@ -87,7 +87,7 @@ handle_cast(_Msg, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info(timeout, #state{task = Task} = State) ->
-  queuerl_task:perform(Task),
+  queuerl_tasks:perform(Task),
   {stop, normal, State}.
 
 %%--------------------------------------------------------------------
@@ -114,7 +114,3 @@ terminate(_Reason, _State) ->
 %%--------------------------------------------------------------------
 code_change(_OldVsn, State, _Extra) ->
   {ok, State}.
-
-%%%===================================================================
-%%% Internal functions
-%%%===================================================================

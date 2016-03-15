@@ -1,4 +1,4 @@
--module(queuerl_task).
+-module(queuerl_tasks).
 
 -record(task, {function, status, uuid, attempts, max_attempts, worker_pid, client_pid}).
 -type task_status() :: ready | complete | errored | retrying.
