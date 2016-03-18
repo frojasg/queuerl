@@ -1,0 +1,16 @@
+* TODO Delete the task from the Queue
+* TODO Add eunit tests
+* TODO Add common tests
+* TODO Add property based tests
+* TODO Store Tasks in an ETS table
+* TODO Persist tasks in a relational database (Postgres?)
+* TODO Client App that uses this queue system
+** Build an Elixir and Erlang client
+** Releases
+** Update releases
+* TODO Logging library --Lagger?
+* TODO Use parse_transform to add getters/setters to task module.
+* TODO Define a communication protocol
+** Controller and Worker should communicate via msgs
+** Stop using monitors to get notifications from workers
+
