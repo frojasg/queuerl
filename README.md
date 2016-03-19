@@ -26,7 +26,7 @@ init([]) ->
   {ok, {{one_for_one, 10, 20}, [Queuerl, ...]} }.
 ```
 
-Once your application is up and running, `queuerl_sup` will automatically spawn the queue subsystme.  You can enqueue a `Task` as follows:
+Once your application is up and running, `queuerl_sup` will automatically spawn the queue subsystem.  You can enqueue a `Task` as follows:
 
 ```erlang
 Task = queuerl:new_task(fun() -> erlang:display(hello) end),
