@@ -144,7 +144,7 @@ handle_worker_down(MonitorRef, Info, #state{refs = Refs, tasks = Tasks} = State)
   {noreply, State#state{tasks = NewTasks}}.
 
 handle_worker_down(normal, Task) ->
-  NewTask = queuerl_task_actions:change_status(succeeded, Task),
+  NewTask = queuerl_tasks:change_status(succeeded, Task),
   queuerl_task_actions:notify_client(NewTask, {succeeded}),
   NewTask;
 handle_worker_down(Info, Task) ->
