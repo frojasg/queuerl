@@ -13,4 +13,5 @@
 * TODO Define a communication protocol
 ** Controller and Worker should communicate via msgs
 ** Stop using monitors to get notifications from workers
-
+* TODO Add execution-history to task
+* TODO Add client abstraction?

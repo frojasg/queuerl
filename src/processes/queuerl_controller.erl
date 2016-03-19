@@ -82,7 +82,7 @@ handle_call({task_status, Uuid}, _From, #state{tasks = Tasks} = State) ->
 %%--------------------------------------------------------------------
 -spec handle_cast({enqueue, queuerl_tasks:task()}, #state{}) -> any().
 handle_cast({enqueue, Task}, #state{refs = Refs, tasks = Tasks} = State) ->
-  {ok, NewTask} = queuerl:run(Task),
+  {ok, NewTask} = queuerl_task_actions:run(Task),
   TaskUuid = queuerl_tasks:get_uuid(NewTask),
   MonitorRef = monitor_task(NewTask),
   NewRefs = maps:put(MonitorRef, NewTask, Refs),
@@ -144,16 +144,16 @@ handle_worker_down(MonitorRef, Info, #state{refs = Refs, tasks = Tasks} = State)
   {noreply, State#state{tasks = NewTasks}}.
 
 handle_worker_down(normal, Task) ->
-  NewTask = queuerl_tasks:change_status(succeeded, Task),
-  queuerl:notify_client(NewTask, {succeeded}),
+  NewTask = queuerl_task_actions:change_status(succeeded, Task),
+  queuerl_task_actions:notify_client(NewTask, {succeeded}),
   NewTask;
 handle_worker_down(Info, Task) ->
-  Result = queuerl:retry(Task, Info),
+  Result = queuerl_task_actions:retry(Task, Info),
   handle_retry_task(Result).
 
 handle_retry_task({error, {Task, ErrorMsg}}) ->
   ErroredTask = queuerl_tasks:change_status(errored, Task),
-  queuerl:notify_client(ErroredTask, {errored, ErrorMsg}),
+  queuerl_task_actions:notify_client(ErroredTask, {errored, ErrorMsg}),
   ErroredTask;
 handle_retry_task({ok, Task}) ->
   Task.

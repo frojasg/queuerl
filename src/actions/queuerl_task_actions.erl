@@ -13,12 +13,11 @@ enqueue(Task) ->
   queuerl_controller:enqueue(Task),
   ok.
 
--spec notify_client(queuerl_tasks:task(), any()) -> any().
-notify_client(Task, Info) ->
-  Client = queuerl_tasks:get_client_pid(Task),
-  TaskUuid = queuerl_tasks:get_uuid(Task),
-  NotificationType = notification_type(Info),
-  Client ! {NotificationType, {TaskUuid, Info}}.
+-spec run(queuerl_tasks:task()) -> queuerl_tasks:task().
+run(Task) ->
+  NewTask = queuerl_tasks:increase_attempts(Task),
+  {ok, WorkerPid} = queuerl_worker_sup:start_child(NewTask),
+  {ok, queuerl_tasks:set_worker_pid(WorkerPid, NewTask)}.
 
 -spec retry(queuerl_task:task(), any()) -> {ok, queuerl_task:task()}
 					  | {error, {queuerl_task:task(), run_out_of_retries}}.
@@ -32,11 +31,12 @@ retry(Task, Error) ->
     false -> handle_retry_task(NewTask)
   end.
 
--spec run(queuerl_tasks:task()) -> queuerl_tasks:task().
-run(Task) ->
-  NewTask = queuerl_tasks:increase_attempts(Task),
-  {ok, WorkerPid} = queuerl_worker_sup:start_child(NewTask),
-  {ok, queuerl_tasks:set_worker_pid(WorkerPid, NewTask)}.
+-spec notify_client(queuerl_tasks:task(), any()) -> any().
+notify_client(Task, Info) ->
+  Client = queuerl_tasks:get_client_pid(Task),
+  TaskUuid = queuerl_tasks:get_uuid(Task),
+  NotificationType = notification_type(Info),
+  Client ! {NotificationType, {TaskUuid, Info}}.
 
 %%% Internal functions
 notification_type({succeeded}) ->
